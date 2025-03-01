@@ -1,0 +1,10 @@
+
+streamlit
+shodan
+requests
+whois
+pandas
+pillow
+spacy
+python-whois
+pyexiftool
