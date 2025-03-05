@@ -3,12 +3,10 @@ import requests
 import whois
 import shodan
 import json
-import hashlib
 from PIL import Image
 import exiftool
 import sqlite3
 from datetime import datetime
-import os
 
 # Validate input types
 def is_valid_ip(ip):
@@ -22,17 +20,11 @@ def is_valid_hash(hash_str):
     return len(hash_str) in [32, 40, 64] and all(c in "0123456789abcdef" for c in hash_str.lower())
 
 # Fetch data from APIs
-def fetch_shodan(ip):
-    api_key = '3qnz6kyN9TdQVxKEQKoTWNXkxX9pMG7s'
-    api = shodan.Shodan(api_key)
-    try:
-        return api.host(ip)
-    except Exception as e:
-        return str(e)
+
 #ABUSEIPDB
 def fetch_abuseipdb(ip):
     url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}"
-    headers = {"Key": '03bcc8ad226439a453f128a24bee75de52f1cfd6f6a85f1980679684aa51fe21faa60b4b9c942161'}
+    headers = {"Key": 'SHODAN_API'}
     try:
         response = requests.get(url, headers=headers)
         return response.json()
@@ -41,7 +33,7 @@ def fetch_abuseipdb(ip):
 #VIRUSTOTAL
 def fetch_virustotal(data):
     url = f"https://www.virustotal.com/api/v3/{data}"
-    headers = {"x-apikey": 'a5d7c604b9a833c315aa57c15ab977e9cf728829a06140f9250071b8b418d7a1'}
+    headers = {"x-apikey": 'VIRUSTOTAL API'}
     try:
         response = requests.get(url, headers=headers)
         return response.json()
@@ -61,17 +53,26 @@ def fetch_social_media(username):
         return str(e)
 
 def extract_image_metadata(image_path):
-    with exiftool.ExifTool() as et:
+    with exiftool.ExifToolHelper() as et:
         metadata = et.get_metadata(image_path)
     return metadata
+
+        # Extract only relevant fields
+        useful_keys = ["File:FileName", "File:FileSize", "EXIF:Make", "EXIF:Model", "EXIF:DateTimeOriginal",
+                       "EXIF:GPSLatitude", "EXIF:GPSLongitude"]
+        filtered_metadata = {key: metadata[0][key] for key in useful_keys if key in metadata[0]}
+        
+        return filtered_metadata if filtered_metadata else {"error": "No useful metadata found"}
+    
+    except Exception as e:
+        return {"error": f"Failed to extract metadata: {e}"}
 
 def is_valid_username(username: str) -> bool:
     # Add your username validation logic here
     return bool(username and len(username) >= 3)
 
-
-SHODAN_API_KEY =  '3qnz6kyN9TdQVxKEQKoTWNXkxX9pMG7s'
-ABUSEIPDB_API_KEY = '03bcc8ad226439a453f128a24bee75de52f1cfd6f6a85f1980679684aa51fe21faa60b4b9c942161'
+SHODAN_API_KEY =  'SHODAN_API'
+ABUSEIPDB_API_KEY = 'ABUSEIPDB_API'
 
 def get_ip_info(ip: str) -> dict:
     """Fetches IP intelligence from Shodan and AbuseIPDB."""
@@ -101,9 +102,6 @@ def get_ip_info(ip: str) -> dict:
         info['abuseipdb'] = response.json()
     except Exception as e:
         info['abuseipdb_error'] = str(e)
-
-    return info
-
 
 # Database operations
 def store_data(input_data, result):
@@ -157,7 +155,7 @@ def check_username_presence(username: str) -> dict:
             info[site] = f"Error: {str(e)}"    
     return info
 
-VIRUSTOTAL_API_KEY = 'a5d7c604b9a833c315aa57c15ab977e9cf728829a06140f9250071b8b418d7a1'
+VIRUSTOTAL_API_KEY = 'VIRUSTOTAL_API'
 
 def get_hash_info(file_hash: str) -> dict:
     """Fetches file hash information from VirusTotal."""
